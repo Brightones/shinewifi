@@ -23,6 +23,12 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Initialize session state for server control
+if "server_status" not in st.session_state:
+    st.session_state.server_status = None
+if "config_updated" not in st.session_state:
+    st.session_state.config_updated = False
+
 # ─── CSS Styling ──────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -88,6 +94,123 @@ def get_register_info(config: AppConfig) -> dict:
     return info
 
 
+# ─── Server Control Functions ──────────────────────────────────
+
+def check_server_status() -> str:
+    """Check if the Modbus server service is running."""
+    import subprocess
+    
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "shinebridge-modbus.service"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        return f"error: {e}"
+
+
+def start_server():
+    """Start the Modbus server service."""
+    import subprocess
+    
+    try:
+        # Use sudo with password for automation
+        cmd = f"echo 'rainbow' | sudo -S systemctl start shinebridge-modbus.service"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode == 0:
+            st.session_state.server_status = "active"
+            return True, "Server started successfully"
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            return False, f"Failed to start: {error_msg}"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout while starting server"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+
+def stop_server():
+    """Stop the Modbus server service."""
+    import subprocess
+    
+    try:
+        cmd = f"echo 'rainbow' | sudo -S systemctl stop shinebridge-modbus.service"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode == 0:
+            st.session_state.server_status = "inactive"
+            return True, "Server stopped successfully"
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            return False, f"Failed to stop: {error_msg}"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout while stopping server"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+
+def restart_server():
+    """Restart the Modbus server service."""
+    import subprocess
+    
+    try:
+        cmd = f"echo 'rainbow' | sudo -S systemctl restart shinebridge-modbus.service"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode == 0:
+            st.session_state.server_status = "active"
+            return True, "Server restarted successfully"
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip()
+            return False, f"Failed to restart: {error_msg}"
+    except subprocess.TimeoutExpired:
+        return False, "Timeout while restarting server"
+    except Exception as e:
+        return False, f"Error: {e}"
+
+
+def update_config(host: str, port: int) -> tuple[bool, str]:
+    """Update config.yaml with new host and port settings."""
+    import yaml
+    
+    try:
+        config_path = Path(__file__).parent.parent / "config.yaml"
+        
+        # Read current config
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f) or {}
+        
+        # Update modbus settings
+        if "modbus" not in config_data:
+            config_data["modbus"] = {}
+        
+        config_data["modbus"]["host"] = host
+        config_data["modbus"]["port"] = port
+        
+        # Write back to file
+        with open(config_path, 'w') as f:
+            yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+        
+        return True, "Configuration updated successfully"
+    except Exception as e:
+        return False, f"Failed to update config: {e}"
+
+
+def get_service_status_icon(status: str) -> str:
+    """Get emoji icon for service status."""
+    icons = {
+        "active": "🟢",
+        "inactive": "🔴",
+        "failed": "⚠️",
+        "error": "❓"
+    }
+    return icons.get(status, "❓")
+
+
 # ─── Main App ────────────────────────────────────────────────
 
 st.title("☀️ ShineWiFi-F Monitor")
@@ -100,7 +223,86 @@ register_info = get_register_info(config)
 with st.sidebar:
     st.header("⚙️ Controls")
     
-    # Connection status
+    # ─── Server Status & Control ──────────────────────────────
+    st.subheader("🖥️ Modbus Server")
+    
+    # Check and display current status
+    if st.session_state.server_status is None or st.session_state.config_updated:
+        st.session_state.server_status = check_server_status()
+        st.session_state.config_updated = False
+    
+    status_icon = get_service_status_icon(st.session_state.server_status)
+    st.markdown(f"**Status:** {status_icon} `{st.session_state.server_status}`")
+    
+    # Server control buttons
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("▶️ Start", type="primary", use_container_width=True):
+            success, msg = start_server()
+            st.session_state.server_status = check_server_status()
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+            st.rerun()
+    
+    with col2:
+        if st.button("⏹️ Stop", type="secondary", use_container_width=True):
+            success, msg = stop_server()
+            st.session_state.server_status = check_server_status()
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+            st.rerun()
+    
+    with col3:
+        if st.button("🔄 Restart", type="secondary", use_container_width=True):
+            success, msg = restart_server()
+            st.session_state.server_status = check_server_status()
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+            st.rerun()
+    
+    st.divider()
+    
+    # ─── Server Configuration ──────────────────────────────
+    st.subheader("⚙️ Configuration")
+    
+    new_host = st.text_input(
+        "Listen Host",
+        value=config.modbus.host,
+        help="IP address to bind the Modbus server (e.g., 0.0.0.0 or 192.168.10.165)",
+    )
+    
+    new_port = st.number_input(
+        "Listen Port",
+        min_value=1,
+        max_value=65535,
+        value=config.modbus.port,
+        help="Port number for the Modbus TCP server (default: 5279)",
+    )
+    
+    if st.button("💾 Apply Configuration", type="primary", use_container_width=True):
+        success, msg = update_config(new_host, new_port)
+        if success:
+            st.session_state.config_updated = True
+            config.modbus.host = new_host
+            config.modbus.port = new_port
+            st.success(msg + " — Please restart the server to apply changes.")
+            
+            # Auto-restart after config change
+            with st.spinner("Restarting server..."):
+                _, restart_msg = restart_server()
+                st.session_state.server_status = check_server_status()
+        else:
+            st.error(msg)
+    
+    st.divider()
+    
+    # Connection status (existing)
     modbus_host = config.modbus.host
     modbus_port = config.modbus.port
     mqtt_broker = config.mqtt.broker
