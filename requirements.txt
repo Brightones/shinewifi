@@ -1,0 +1,13 @@
+# Core dependencies
+pymodbus>=3.2          # Modbus TCP server/client
+paho-mqtt>=2.0         # MQTT client
+streamlit>=1.28        # Web dashboard
+pydantic-settings>=2.0 # Config management
+pyyaml>=6.0            # YAML config parsing
+loguru>=0.7            # Logging
+pandas>=2.0            # CSV history log manipulation
+numpy>=1.24            # Numeric operations for uint32/int32 decoding
+
+# Testing (dev)
+pytest>=7.0
+pytest-asyncio>=0.21

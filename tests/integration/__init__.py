@@ -1,0 +1,1 @@
+# shinebridge integration tests package

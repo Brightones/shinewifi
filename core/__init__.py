@@ -1,0 +1,1 @@
+# shinebridge core package

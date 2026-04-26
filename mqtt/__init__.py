@@ -1,0 +1,1 @@
+# shinebridge MQTT bridge package

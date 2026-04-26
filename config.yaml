@@ -1,0 +1,54 @@
+# ShineWiFi-F Modbus Server Configuration
+
+modbus:
+  host: "192.168.10.165"
+  port: 5279
+  device_id: 1
+  ignore_missing_slaves: true
+  timeout: 3
+
+mqtt:
+  broker: "localhost"
+  port: 1883
+  username: ""
+  password: ""
+  topic_prefix: "shinebridge"
+  qos: 1
+
+registers:
+  enabled: true
+  update_interval: 5  # seconds between register updates
+  
+  # Register mapping (name -> address)
+  mapping:
+    solar_voltage: 1
+    solar_current: 2
+    solar_power: 3
+    battery_voltage: 4
+    battery_current: 5
+    battery_power: 6
+    battery_soc: 7
+    ac_voltage: 8
+    ac_frequency: 9
+    ac_power: 10
+    daily_energy: 11
+    total_energy: 12
+    temperature: 13
+    rssi_signal: 14
+
+logging_cfg:
+  history_enabled: true
+  history_filepath: "data/history.csv"
+  max_rows: 100000
+  flush_interval: 60
+
+dashboard:
+  enabled: true
+  port: 8503
+  refresh_interval: 5
+  title: "ShineWiFi-F Monitor"
+
+loguru:
+  level: "INFO"
+  rotation: "10 MB"
+  retention: "7 days"
